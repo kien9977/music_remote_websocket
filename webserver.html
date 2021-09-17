@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Music server control</title>
+		<style type="text/css">
+			body {
+				font-family: "Courier New", sans-serif;
+				text-align: center;
+			}
+			.volume {
+				font-size: 2em;
+				display: flex;
+				justify-content: center;
+			}
+			.volume, .value {
+				line-height: 1;
+				padding: 2rem;
+				margin: 2rem;
+				border: medium solid;
+				min-height: 1em;
+				min-width: 1em;
+			}
+			.volume {
+				cursor: pointer;
+				user-select: none;
+			}
+			.playdeck {
+				font-size: 2em;
+				display: flex;
+				justify-content: center;
+			}
+			.playdeck, .playbutton {
+				line-height: 1;
+				padding: 2rem;
+				margin: 2rem;
+				border: medium solid;
+				min-height: 1em;
+				min-width: 1em;
+			}
+			.playbutton {
+				cursor: pointer;
+				user-select: none;
+			}
+			.playbutton {
+				min-width: 2em;
+			}
+			.minus {
+				color: #ff0000;
+			}
+			.plus {
+				color: #008000;
+			}
+			.value {
+				min-width: 2em;
+			}
+			.playing {
+				font-size: 2em;
+				display: flex;
+				justify-content: center;
+				line-height: 1;
+				padding: 2rem;
+				margin: 2rem;
+				border: medium solid;
+				min-height: 1em;
+				min-width: 1em;
+			}
+			.filedeck {
+				font-size: 2em;
+				display: flex;
+				justify-content: left;
+				line-height: 1;
+				padding: 2rem;
+				margin: 2rem;
+				border: medium solid;
+				min-height: 1em;
+				min-width: 1em;
+			}
+		</style>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	</head>
+	<body>
+		<div class="container">
+			<div class="volume">
+				<div class="minus volume">-</div>
+				<div class="value">?</div>
+				<div class="plus volume">+</div>
+			</div>
+			<div class="playing">Playing: None</div>
+			<div class="playdeck">
+				<div class="playbutton">?</div>
+			</div>
+			<div class="filedeck">
+				<ul>
+					<li>Coffee</li>
+					<li>Tea</li>
+					<li>Milk</li>
+				</ul>
+			</div> 
+		</div>
+		
+		<script>
+			var minus = document.querySelector('.minus'),
+				plus = document.querySelector('.plus'),
+				value = document.querySelector('.value'),
+				playbutton = document.querySelector('.playbutton'),
+				websocket = new WebSocket("ws://127.0.0.1:6789/");
+			minus.onclick = function (event) {
+				websocket.send(JSON.stringify({action: 'vol_minus'}));
+			}
+			plus.onclick = function (event) {
+				websocket.send(JSON.stringify({action: 'vol_plus'}));
+			}
+
+			function start(){
+				websocket.send(JSON.stringify({action: 'volume_var'}));
+
+				// websocket.send(JSON.stringify({action: 'vol_plus'}));
+			}
+			websocket.onmessage = function (event) {
+				data = JSON.parse(event.data);
+				switch (data.type) {
+					case 'volume_var':
+						value.textContent = data.values;
+						break;
+					case 'welcome':
+						// var username = prompt("What is your username?");
+						// var password = prompt("What is your password?");
+						var username = "admin";
+						var password = "admin";
+
+						websocket.send(JSON.stringify({action: 'auth', username: username, password: password}));
+
+						break;
+						// console.log(JSON.stringify({action: 'auth', username: username, password: password}))
+					case 'login_status':
+						if(data.login_success == "FALSE"){
+							alert("Login failed");
+							var username = prompt("What is your username?");
+							var password = prompt("What is your password?");
+
+							websocket.send(JSON.stringify({action: 'auth', username: username, password: password}));
+						}
+						else{
+							alert("Login successful");
+							start();
+						}
+						break;
+					case 'error':
+						alert(data.description);
+						break;
+					default:
+						console.error(
+							"unsupported event", data);
+				}
+			};
+		</script>
+	</body>
+</html>
