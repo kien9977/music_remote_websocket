@@ -44,6 +44,21 @@
 			.playbutton {
 				min-width: 2em;
 			}
+			.playdeck, .stopbutton {
+				line-height: 1;
+				padding: 2rem;
+				margin: 2rem;
+				border: medium solid;
+				min-height: 1em;
+				min-width: 1em;
+			}
+			.stopbutton {
+				cursor: pointer;
+				user-select: none;
+			}
+			.stopbutton {
+				min-width: 2em;
+			}
 			.minus {
 				color: #ff0000;
 			}
@@ -75,8 +90,16 @@
 				min-height: 1em;
 				min-width: 1em;
 			}
+			.clickme {
+				cursor: pointer;
+				user-select: none;
+				justify-content: left;
+			    display: table;
+			    text-align: -webkit-auto;
+			}
 		</style>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta charset="UTF-8">
 	</head>
 	<body>
 		<div class="container">
@@ -87,22 +110,30 @@
 			</div>
 			<div class="playing">Playing: None</div>
 			<div class="playdeck">
-				<div class="playbutton">?</div>
+				<div class="playbutton" onclick="">?</div>
+				<div class="stopbutton">&#x23F9;</div>
 			</div>
 			<div class="filedeck">
-				<ul>
-					<li>Coffee</li>
-					<li>Tea</li>
-					<li>Milk</li>
-				</ul>
+				<div class="folder_dir">Folder: </div>
+				<div>
+					<ul class="folder">
+						<li class="clickme"> Nothing</li>
+					</ul>
+				</div>
 			</div> 
 		</div>
 		
 		<script>
+			// &#x1F4C2;
 			var minus = document.querySelector('.minus'),
 				plus = document.querySelector('.plus'),
 				value = document.querySelector('.value'),
 				playbutton = document.querySelector('.playbutton'),
+				folder = document.querySelector('.folder'),
+				folder_dir = document.querySelector('.folder_dir'),
+				playing = document.querySelector('.playing'),
+				stopbutton = document.querySelector('.stopbutton'),
+				global_dir = "F:\\",
 				websocket = new WebSocket("ws://127.0.0.1:6789/");
 			minus.onclick = function (event) {
 				websocket.send(JSON.stringify({action: 'vol_minus'}));
@@ -110,12 +141,56 @@
 			plus.onclick = function (event) {
 				websocket.send(JSON.stringify({action: 'vol_plus'}));
 			}
+			stopbutton.onclick = function (event) {
+				stopmusic();
+			}
+			playbutton.onclick = function (event) {
+				if(playbutton.innerText == "||"){
+					pausemusic();
+				}
+				else if(playbutton.innerText == "|>"){
+					resumemusic();
+				}
+			}
 
 			function start(){
 				websocket.send(JSON.stringify({action: 'volume_var'}));
-
+				websocket.send(JSON.stringify({action: 'folder_list', dir: global_dir}));
+				websocket.send(JSON.stringify({action: 'play_status'}));
+				websocket.send(JSON.stringify({action: 'play_status_return'}));
 				// websocket.send(JSON.stringify({action: 'vol_plus'}));
 			}
+
+			function gotodir(dir){
+				global_dir = global_dir + dir + "\\";
+				websocket.send(JSON.stringify({action: 'folder_list', dir: global_dir}));
+			}
+
+			function playmusic(dir){
+				var local_dir = global_dir + dir;
+				console.log({action: 'start_music_song', dir: local_dir});
+				websocket.send(JSON.stringify({action: 'start_music_song', directory: local_dir}));
+				playbutton.textContent = "||";
+			}
+
+			function stopmusic(){
+				// code there
+				websocket.send(JSON.stringify({action: 'stop_music'}));
+				playbutton.textContent = "|>";
+			}
+
+			function pausemusic(dir){
+				// code there
+				websocket.send(JSON.stringify({action: 'pause_music'}));
+				playbutton.textContent = "|>";
+			}
+
+			function resumemusic(dir){
+				// code there
+				websocket.send(JSON.stringify({action: 'play_music'}));
+				playbutton.textContent = "||";
+			}
+
 			websocket.onmessage = function (event) {
 				data = JSON.parse(event.data);
 				switch (data.type) {
@@ -147,6 +222,55 @@
 						break;
 					case 'error':
 						alert(data.description);
+						break;
+					case 'folder_list':
+						var folderlist = "";
+						folderlist += "<li class='clickme' onclick=\"gotodir('..')\"> &#x1F4C2; ..</li>";
+						for(var i = 0; i < data.data.length; i++){
+							// console.log(data.data[i]);
+							if(data.data[i].type == 0){
+								folderlist += "<li class='clickme' onclick=\"gotodir('" + data.data[i].name + "')\"> &#x1F4C2; " + data.data[i].name + "</li>";
+							}
+							if(data.data[i].type == 1){
+								folderlist += "<li class='clickme' onclick=\"playmusic('" + data.data[i].name + "')\"> " + data.data[i].name + "</li>";
+							}
+						}
+						folder.textContent = data.dir;
+						folder.innerHTML = folderlist;
+						break;
+					case 'play_status':
+						playing.textContent = "Playing: " + data.playing;
+						if(data.play_status == 1){
+							playbutton.textContent = "||";
+						}
+						else{
+							playbutton.textContent = "|>";
+						}
+						
+						break;
+					case 'pause_play_event':
+						if(data.play_status == 1){
+							playbutton.textContent = "||";
+						}
+						else{
+							playbutton.textContent = "|>";
+						}
+						break;
+					case 'stop_event':
+						if(data.play_status == 1){
+							playbutton.textContent = "||";
+						}
+						else{
+							playbutton.textContent = "|>";
+						}
+						break;
+					case 'play_status_return':
+						if(data.play_status == 1){
+							playbutton.textContent = "||";
+						}
+						else{
+							playbutton.textContent = "|>";
+						}
 						break;
 					default:
 						console.error(
