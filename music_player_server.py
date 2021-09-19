@@ -10,6 +10,12 @@ import logging
 import websockets
 import os
 from audioplayer import AudioPlayer
+from http.server import BaseHTTPRequestHandler
+import http.server
+import socketserver
+from multiprocessing import Process
+
+
 
 USERNAME = "admin"
 PASSWORD = "admin"
@@ -26,6 +32,7 @@ GLOBAL_FILE_DIR = ""
 GLOBAL_FILE_NAME = ""
 GLOBAL_PLAYER = AudioPlayer("")
 STATE = 0
+VOLUME_STEP = 5
 
 def global_file_name(file_name):
     global GLOBAL_FILE_NAME
@@ -60,7 +67,7 @@ def global_player_pause():
 def global_volume_minus():
     global VOLUME
     if VOLUME > 0:
-        VOLUME = VOLUME - 1
+        VOLUME = VOLUME - VOLUME_STEP
         GLOBAL_PLAYER.volume = VOLUME
         return True
     else:
@@ -69,7 +76,7 @@ def global_volume_minus():
 def global_volume_plus():
     global VOLUME
     if VOLUME < 100:
-        VOLUME = VOLUME + 1
+        VOLUME = VOLUME + VOLUME_STEP
         GLOBAL_PLAYER.volume = VOLUME
         return True
     else:
@@ -270,9 +277,27 @@ async def counter(websocket, path):
 
 
 async def main():
-    async with websockets.serve(counter, "localhost", 6789):
+    async with websockets.serve(counter, "0.0.0.0", 6789):
         await asyncio.Future()  # run forever
+
+def run_main():
+    print("Websocket ready on port 6789")
+    asyncio.run(main())
+
+def HTTPServerStart():
+    PORT = 8000
+
+    Handler = http.server.SimpleHTTPRequestHandler
+
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print("serving at port", PORT)
+        httpd.serve_forever()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    p1 = Process(target=run_main)
+    p1.start()
+    p2 = Process(target=HTTPServerStart)
+    p2.start()
+    p1.join()
+    p2.join()
