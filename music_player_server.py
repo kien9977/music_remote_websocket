@@ -13,7 +13,7 @@ from audioplayer import AudioPlayer
 
 USERNAME = "admin"
 PASSWORD = "admin"
-BASE_FOLDER = "C:\\"
+BASE_FOLDER = "F:\\"
 
 logging.basicConfig()
 
@@ -23,7 +23,13 @@ USERS = set()
 USERS_AUTH = set()
 VOLUME = 100
 GLOBAL_FILE_DIR = ""
+GLOBAL_FILE_NAME = ""
 GLOBAL_PLAYER = AudioPlayer("")
+STATE = 0
+
+def global_file_name(file_name):
+    global GLOBAL_FILE_NAME
+    GLOBAL_FILE_NAME = file_name
 
 def global_file_dir(file_dir):
     global GLOBAL_FILE_DIR
@@ -31,22 +37,31 @@ def global_file_dir(file_dir):
 
 def global_player_start_song():
     global GLOBAL_PLAYER
+    global STATE
     GLOBAL_PLAYER = AudioPlayer(GLOBAL_FILE_DIR)
     GLOBAL_PLAYER.play()
+    STATE = 1
 
 def global_player_play():
+    global STATE
     GLOBAL_PLAYER.resume()
+    STATE = 1
 
 def global_player_stop():
+    global STATE
     GLOBAL_PLAYER.stop()
+    STATE = 0
 
 def global_player_pause():
+    global STATE
     GLOBAL_PLAYER.pause()
+    STATE = 0
 
 def global_volume_minus():
     global VOLUME
     if VOLUME > 0:
         VOLUME = VOLUME - 1
+        GLOBAL_PLAYER.volume = VOLUME
         return True
     else:
         return False
@@ -55,6 +70,7 @@ def global_volume_plus():
     global VOLUME
     if VOLUME < 100:
         VOLUME = VOLUME + 1
+        GLOBAL_PLAYER.volume = VOLUME
         return True
     else:
         return False
@@ -80,8 +96,24 @@ def volume_var(volume):
 def list_dir(dir, data):
     return json.dumps({"type": "folder_list", "dir": dir, "data": data})
 
+def pause_play_event():
+    return json.dumps({"type": "pause_play_event", "play_status": STATE})
+
+def stop_event():
+    return json.dumps({"type": "stop_event", "play_status": STATE})
+
+def play_status_return():
+    return json.dumps({"type": "play_status_return", "play_status": STATE})
+
 def users_welcome():
     return json.dumps({"type": "welcome", "msg": "Hello from Kien Music Server"})
+
+def play_status():
+    # a = GLOBAL_FILE_DIR
+    # b = a.split("\\")
+    #
+    # print(b[-1])
+    return json.dumps({"type": "play_status", "playing": GLOBAL_FILE_NAME, "status": STATE})
 
 async def counter(websocket, path):
     try:
@@ -100,6 +132,7 @@ async def counter(websocket, path):
                 data = {}
                 data["action"] = "None"
                 await websocket.send(error_event("Json has been sabotaged"))
+            print(data)
             if data["action"] == "auth":
                 if websocket not in USERS_AUTH:
                     try:
@@ -151,7 +184,8 @@ async def counter(websocket, path):
                     websockets.broadcast(USERS, volume_var(VOLUME))
                 else:
                     await websocket.send(error_event("Volume already highest it can be"))
-
+            elif data["action"] == "volume_var":
+                websockets.broadcast(USERS, volume_var(VOLUME))
             elif data["action"] == "start_music_song":
                 print("Music start")
                 # force authenticate within
@@ -161,32 +195,68 @@ async def counter(websocket, path):
                     except:
                         dir = ""
 
-                    # start music
-                    global_file_dir(dir)
-                    global_player_start_song()
+                    if(dir != ""):
+                        try:
+                            # start music
+                            global_file_dir(dir)
+                            print(dir)
+                            global_player_start_song()
 
-                    await websocket.send(success_event("Music started"))
+                            a = dir
+                            b = a.split("\\")
+
+                            fn = b[-1]
+
+
+                            global_file_name(fn)
+                            websockets.broadcast(USERS_AUTH, play_status())
+                        except:
+                            await websocket.send(error_event("File is invalid"))
+                    else:
+                        await websocket.send(error_event("Directory are empty"))
                 else:
                     print("Not authorized")
                     await websocket.send(error_event("Not authorized"))
             elif data["action"] == "play_music":
                 if websocket in USERS_AUTH:
+                    print("Music continued")
                     global_player_play()
-
-                    await websocket.send(success_event("Music continued"))
+                    # await websocket.send(success_event("Music continued"))
+                    websockets.broadcast(USERS_AUTH, pause_play_event())
                 else:
                     print("Not authorized")
                     await websocket.send(error_event("Not authorized"))
             elif data["action"] == "stop_music":
-                print("Music stop")
+                if websocket in USERS_AUTH:
+                    print("Music stop")
+                    global_player_stop()
+                    # await websocket.send(success_event("Music stop"))
+                    websockets.broadcast(USERS_AUTH, stop_event())
+                else:
+                    print("Not authorized")
+                    await websocket.send(error_event("Not authorized"))
 
-                global_player_stop()
-                await websocket.send(success_event("Music stopped"))
             elif data["action"] == "pause_music":
-                print("Music paused")
-
-                global_player_pause()
-                await websocket.send(success_event("Music paused"))
+                if websocket in USERS_AUTH:
+                    print("Music paused")
+                    global_player_pause()
+                    websockets.broadcast(USERS_AUTH, pause_play_event())
+                else:
+                    print("Not authorized")
+                    await websocket.send(error_event("Not authorized"))
+            elif data["action"] == "play_status":
+                if websocket in USERS_AUTH:
+                    print(play_status())
+                    await websocket.send(play_status())
+                else:
+                    print("Not authorized")
+                    await websocket.send(error_event("Not authorized"))
+            elif data["action"] == "play_status_return":
+                if websocket in USERS_AUTH:
+                    await websocket.send(play_status_return())
+                else:
+                    print("Not authorized")
+                    await websocket.send(error_event("Not authorized"))
             elif data["action"] == "None":
                 print("Do not thing")
             else:
