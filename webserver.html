@@ -134,7 +134,8 @@
 				playing = document.querySelector('.playing'),
 				stopbutton = document.querySelector('.stopbutton'),
 				global_dir = "F:\\",
-				websocket = new WebSocket("ws://127.0.0.1:6789/");
+				isStop = true,
+				websocket = new WebSocket("ws://"+window.location.hostname+":6789/");
 			minus.onclick = function (event) {
 				websocket.send(JSON.stringify({action: 'vol_minus'}));
 			}
@@ -198,10 +199,10 @@
 						value.textContent = data.values;
 						break;
 					case 'welcome':
-						// var username = prompt("What is your username?");
-						// var password = prompt("What is your password?");
-						var username = "admin";
-						var password = "admin";
+						var username = prompt("What is your username?");
+						var password = prompt("What is your password?");
+						// var username = "admin";
+						// var password = "admin";
 
 						websocket.send(JSON.stringify({action: 'auth', username: username, password: password}));
 
@@ -240,7 +241,7 @@
 						break;
 					case 'play_status':
 						playing.textContent = "Playing: " + data.playing;
-						if(data.play_status == 1){
+						if(data.status == 1){
 							playbutton.textContent = "||";
 						}
 						else{
